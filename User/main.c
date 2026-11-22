@@ -7,13 +7,17 @@
 #include <string.h>
 #include "NuMicro.h"
 #include "hub12.h"
+#include "hub75.h"
 
 #define LED_PIN PF5
 
 /* Default startup text strings */
 char default_scroll_msg[64] = "WELCOME TO TOLL PLAZA";
 
-/* Tile 1: GO graphic (blank at power-on, |GO| turns it on) */
+/* HUB75 panel: red STOP (on at power-on; |STOP| turns it on, |GO| turns it off) */
+static uint8_t stop_active = 1;
+
+/* HUB12 Tile 1: GO graphic (off at power-on; |GO| turns it on, |STOP| turns it off) */
 static uint8_t go_active = 0;
 
 static int16_t scroll_x = DMD_WIDTH;
@@ -144,6 +148,17 @@ static void Update_Display_Buffer(void)
     }
 }
 
+/* Redraw the HUB75 panel - only needed when the STOP state changes */
+static void Update_Stop_Panel(void)
+{
+    HUB75_Clear();
+
+    if (stop_active)
+    {
+        HUB75_DrawBigStop(HUB75_RED);
+    }
+}
+
 /* Copy src into a fixed-size buffer, truncating if too long.
  * A frame can carry up to ~250 payload chars but the text buffers are 64/128,
  * so a plain strcpy here would overwrite neighbouring variables. */
@@ -251,16 +266,19 @@ int main(void)
     LED_Init();
     UART1_Init();
     DMD_Init();
+    HUB75_Init();
 
     DMD_Clear();
     Update_Display_Buffer();
+    Update_Stop_Panel();
 
     UART1_SendString("\r\nTOLL PLAZA UFD SYSTEM READY\r\n");
 
     while (1)
     {
-        /* 1. MATRIX SCAN ROUTINE */
-        DMD_ScanRoutine();
+        /* 1. MATRIX SCAN ROUTINE (one row of each panel type per loop) */
+        DMD_ScanRoutine();      /* HUB12: GO + text tiles */
+        HUB75_ScanRoutine();    /* HUB75: STOP panel      */
 
         /* 2. HEARTBEAT LED BLINK (~400ms tick) */
         if (++heartbeat_counter > 2500UL)
@@ -286,16 +304,28 @@ int main(void)
                         UART1_SendString(rx_fifo);
                         UART1_SendString("\r\n");
 
-                        if (strcmp(rx_fifo, "|GO|") == 0 || strcmp(rx_fifo, "|G|") == 0)
+                        if (strcmp(rx_fifo, "|STOP|") == 0 || strcmp(rx_fifo, "|S|") == 0)
+                        {
+                            stop_active = 1;
+                            go_active = 0;   // Automatically clear GO from HUB12 Tile 1
+                            Update_Stop_Panel();
+                            Update_Display_Buffer();
+                            UART1_SendString("ACK: STOP\r\n");
+                        }
+                        else if (strcmp(rx_fifo, "|GO|") == 0 || strcmp(rx_fifo, "|G|") == 0)
                         {
                             go_active = 1;
+                            stop_active = 0; // Automatically clear STOP from HUB75 panel
+                            Update_Stop_Panel();
                             Update_Display_Buffer();
                             UART1_SendString("ACK: GO\r\n");
                         }
                         else if (strcmp(rx_fifo, "|MIX|") == 0 || strcmp(rx_fifo, "|M|") == 0)
                         {
                             // Reset defaults
+                            stop_active = 1;
                             go_active = 0;
+                            Update_Stop_Panel();
                             t3_mode = 1;
                             t4_mode = 3;
                             strcpy(t3_sf_text, default_scroll_msg);
@@ -307,7 +337,9 @@ int main(void)
                         }
                         else if (strcmp(rx_fifo, "|CLR|") == 0 || strcmp(rx_fifo, "|C|") == 0)
                         {
+                            stop_active = 0;
                             go_active = 0;
+                            Update_Stop_Panel();
                             t3_mode = 1;
                             t4_mode = 1;
                             memset(t3_sf_text, 0, sizeof(t3_sf_text));

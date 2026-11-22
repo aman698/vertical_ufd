@@ -43,7 +43,7 @@ User/main.o: ../User/main.c \
  ../Library/StdDriver/inc/uart.h ../Library/StdDriver/inc/usbd.h \
  ../Library/StdDriver/inc/usci_i2c.h ../Library/StdDriver/inc/usci_spi.h \
  ../Library/StdDriver/inc/usci_uart.h ../Library/StdDriver/inc/wdt.h \
- ../Library/StdDriver/inc/wwdt.h ../User/hub12.h
+ ../Library/StdDriver/inc/wwdt.h ../User/hub12.h ../User/hub75.h
 ../Library/Device/Nuvoton/M031Series/Include/NuMicro.h:
 ../Library/Device/Nuvoton/M031Series/Include/M031Series.h:
 ../Library/CMSIS/Include/core_cm0.h:
@@ -101,3 +101,4 @@ User/main.o: ../User/main.c \
 ../Library/StdDriver/inc/wdt.h:
 ../Library/StdDriver/inc/wwdt.h:
 ../User/hub12.h:
+../User/hub75.h:
