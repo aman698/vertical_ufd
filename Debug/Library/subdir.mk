@@ -5,18 +5,21 @@
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
 ../Library/clk.c \
+../Library/gpio.c \
 ../Library/retarget.c \
 ../Library/sys.c \
 ../Library/uart.c 
 
 OBJS += \
 ./Library/clk.o \
+./Library/gpio.o \
 ./Library/retarget.o \
 ./Library/sys.o \
 ./Library/uart.o 
 
 C_DEPS += \
 ./Library/clk.d \
+./Library/gpio.d \
 ./Library/retarget.d \
 ./Library/sys.d \
 ./Library/uart.d 
