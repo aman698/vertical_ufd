@@ -9,13 +9,14 @@
 #include "NuMicro.h"
 
 /* ---------------------------------------------------------------------------
- * Panel size: four 32 x 16 HUB12 P10 modules chained = 32 x 64 pixels
- *   Tile 1 : y  0..15     Tile 2 : y 16..31
- *   Tile 3 : y 32..47     Tile 4 : y 48..63
+ * Panel size: three 32 x 16 HUB12 P10 modules chained = 32 x 48 pixels
+ *   Tile 1 : y  0..15   GO graphic   (panel connected to the MCU)
+ *   Tile 2 : y 16..31   text         (T3.. commands)
+ *   Tile 3 : y 32..47   text         (T4.. commands, last panel in chain)
  * ------------------------------------------------------------------------- */
 #define DMD_TILE_WIDTH          32U
 #define DMD_TILE_HEIGHT         16U
-#define DMD_TILES               4U
+#define DMD_TILES               3U
 #define DMD_WIDTH               DMD_TILE_WIDTH
 #define DMD_HEIGHT              (DMD_TILE_HEIGHT * DMD_TILES)
 
@@ -59,8 +60,7 @@ void DMD_DrawScrollString(int16_t start_x, uint8_t y, const char *text);
 void DMD_DrawFont14x7Char(uint8_t x, uint8_t y, char c);
 void DMD_DrawFont14x7String(uint8_t x, uint8_t y, const char *text);
 
-/* Full-tile graphics: STOP on Tile 1, GO on Tile 2 */
-void DMD_DrawBigStop(void);
+/* Full-tile graphic: GO on Tile 1 */
 void DMD_DrawBigGo(void);
 
 #endif /* HUB12_H */

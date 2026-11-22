@@ -9,25 +9,6 @@
 volatile uint8_t display_buffer[DMD_HEIGHT][DMD_WIDTH];
 static volatile uint8_t scan_row;
 
-static const char * const stop_art[16] = {
-    "                                ",
-    " XXXXXXX XXXXXXX XXXXXXX XXXXXXX",
-    " XXXXXXX XXXXXXX XXXXXXX XXXXXXX",
-    " XX        XXX   XX   XX XX   XX",
-    " XX        XXX   XX   XX XX   XX",
-    " XX        XXX   XX   XX XX   XX",
-    " XX        XXX   XX   XX XX   XX",
-    " XXXXXXX   XXX   XX   XX XXXXXXX",
-    " XXXXXXX   XXX   XX   XX XXXXXXX",
-    "      XX   XXX   XX   XX XX     ",
-    "      XX   XXX   XX   XX XX     ",
-    "      XX   XXX   XX   XX XX     ",
-    "      XX   XXX   XX   XX XX     ",
-    " XXXXXXX   XXX   XXXXXXX XX     ",
-    " XXXXXXX   XXX   XXXXXXX XX     ",
-    "                                "
-};
-
 static const char * const go_art[16] = {
     "                                ",
     "       X      XXXXXXX  XXXXXXX   ",
@@ -449,22 +430,12 @@ void DMD_ScanRoutine(void)
     scan_row = (scan_row + 1U) & 0x03U;
 }
 
-void DMD_DrawBigStop(void)
-{
-    uint8_t x, y;
-    for(y = 0; y < 16U; y++) {
-        for(x = 0; x < 32U; x++) {
-            if(stop_art[y][x] == 'X') DMD_WritePixel(x, y, 1);
-        }
-    }
-}
-
 void DMD_DrawBigGo(void)
 {
     uint8_t x, y;
     for(y = 0; y < 16U; y++) {
         for(x = 0; x < 32U; x++) {
-            if(go_art[y][x] == 'X') DMD_WritePixel(x, y+16U, 1);
+            if(go_art[y][x] == 'X') DMD_WritePixel(x, y, 1);   /* Tile 1: y 0..15 */
         }
     }
 }

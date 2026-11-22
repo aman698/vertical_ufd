@@ -13,14 +13,15 @@
 /* Default startup text strings */
 char default_scroll_msg[64] = "WELCOME TO TOLL PLAZA";
 
-/* Independent Tile 1 (STOP) and Tile 2 (GO) states (Tile 1 defaults to STOP ON) */
-static uint8_t tile1_stop_active = 1; 
-static uint8_t tile2_go_active = 0;   
+/* Tile 1: GO graphic (blank at power-on, |GO| turns it on) */
+static uint8_t go_active = 0;
 
 static int16_t scroll_x = DMD_WIDTH;
 static uint32_t scroll_speed_threshold = 10UL;
 
-/* Independent Mode & Text Buffers for Tile 3 and Tile 4 */
+/* Text panels - names follow the command prefixes:
+ *   t3_* (T3.. commands) -> Tile 2, y 16..31
+ *   t4_* (T4.. commands) -> Tile 3, y 32..47 */
 static uint8_t t3_mode = 1; // 1 = Full Scroll (T3SF)
 static uint8_t t4_mode = 3; // 3 = Static Upper/Lower (T4SU / T4SL)
 
@@ -88,23 +89,41 @@ static void Update_Display_Buffer(void)
 {
     DMD_Clear();
 
-    /* 1. TILE 1: STOP DISPLAY */
-    if (tile1_stop_active)
-    {
-        DMD_DrawBigStop();
-    }
-
-    /* 2. TILE 2: GO DISPLAY */
-    if (tile2_go_active)
+    /* 1. TILE 1: GO DISPLAY */
+    if (go_active)
     {
         DMD_DrawBigGo();
     }
 
-    /* 3. TILE 3 RENDERING (Independent) */
+    /* 2. TILE 2 RENDERING - T3 commands (Independent) */
     if (t3_mode == 1) // Full Scroll using Font14x7 Bold
     {
         int16_t cur_x = scroll_x;
         const char *p = t3_sf_text;
+        while (*p) {
+            if (cur_x > -7 && cur_x < (int16_t)DMD_WIDTH) {
+                DMD_DrawFont14x7Char((uint8_t)cur_x, 16, *p);
+            }
+            cur_x += 9;
+            p++;
+        }
+    }
+    else if (t3_mode == 2) // Split (Upper Static Y=16 + Lower Scroll Y=24)
+    {
+        DMD_DrawString(0, 16, t3_sd_upper);
+        DMD_DrawScrollString(scroll_x, 24, t3_sd_lower);
+    }
+    else if (t3_mode == 3) // Static Upper / Lower
+    {
+        if (strlen(t3_su_text) > 0) DMD_DrawString(0, 16, t3_su_text);
+        if (strlen(t3_sl_text) > 0) DMD_DrawString(0, 24, t3_sl_text);
+    }
+
+    /* 3. TILE 3 RENDERING - T4 commands (Independent) */
+    if (t4_mode == 1) // Full Scroll using Font14x7 Bold
+    {
+        int16_t cur_x = scroll_x;
+        const char *p = t4_sf_text;
         while (*p) {
             if (cur_x > -7 && cur_x < (int16_t)DMD_WIDTH) {
                 DMD_DrawFont14x7Char((uint8_t)cur_x, 32, *p);
@@ -113,39 +132,15 @@ static void Update_Display_Buffer(void)
             p++;
         }
     }
-    else if (t3_mode == 2) // Split (Upper Static Y=32 + Lower Scroll Y=40)
+    else if (t4_mode == 2) // Split (Upper Static Y=32 + Lower Scroll Y=40)
     {
-        DMD_DrawString(0, 32, t3_sd_upper);
-        DMD_DrawScrollString(scroll_x, 40, t3_sd_lower);
-    }
-    else if (t3_mode == 3) // Static Upper / Lower
-    {
-        if (strlen(t3_su_text) > 0) DMD_DrawString(0, 32, t3_su_text);
-        if (strlen(t3_sl_text) > 0) DMD_DrawString(0, 40, t3_sl_text);
-    }
-
-    /* 4. TILE 4 RENDERING (Independent) */
-    if (t4_mode == 1) // Full Scroll using Font14x7 Bold
-    {
-        int16_t cur_x = scroll_x;
-        const char *p = t4_sf_text;
-        while (*p) {
-            if (cur_x > -7 && cur_x < (int16_t)DMD_WIDTH) {
-                DMD_DrawFont14x7Char((uint8_t)cur_x, 48, *p);
-            }
-            cur_x += 9;
-            p++;
-        }
-    }
-    else if (t4_mode == 2) // Split (Upper Static Y=48 + Lower Scroll Y=56)
-    {
-        DMD_DrawString(0, 48, t4_sd_upper);
-        DMD_DrawScrollString(scroll_x, 56, t4_sd_lower);
+        DMD_DrawString(0, 32, t4_sd_upper);
+        DMD_DrawScrollString(scroll_x, 40, t4_sd_lower);
     }
     else if (t4_mode == 3) // Static Upper / Lower
     {
-        if (strlen(t4_su_text) > 0) DMD_DrawString(0, 48, t4_su_text);
-        if (strlen(t4_sl_text) > 0) DMD_DrawString(0, 56, t4_sl_text);
+        if (strlen(t4_su_text) > 0) DMD_DrawString(0, 32, t4_su_text);
+        if (strlen(t4_sl_text) > 0) DMD_DrawString(0, 40, t4_sl_text);
     }
 }
 
@@ -291,25 +286,16 @@ int main(void)
                         UART1_SendString(rx_fifo);
                         UART1_SendString("\r\n");
 
-                        if (strcmp(rx_fifo, "|STOP|") == 0 || strcmp(rx_fifo, "|S|") == 0)
+                        if (strcmp(rx_fifo, "|GO|") == 0 || strcmp(rx_fifo, "|G|") == 0)
                         {
-                            tile1_stop_active = 1;
-                            tile2_go_active = 0; // Automatically clear GO from Tile 2
-                            Update_Display_Buffer();
-                            UART1_SendString("ACK: STOP\r\n");
-                        }
-                        else if (strcmp(rx_fifo, "|GO|") == 0 || strcmp(rx_fifo, "|G|") == 0)
-                        {
-                            tile2_go_active = 1;
-                            tile1_stop_active = 0; // Automatically clear STOP from Tile 1
+                            go_active = 1;
                             Update_Display_Buffer();
                             UART1_SendString("ACK: GO\r\n");
                         }
                         else if (strcmp(rx_fifo, "|MIX|") == 0 || strcmp(rx_fifo, "|M|") == 0)
                         {
                             // Reset defaults
-                            tile1_stop_active = 1;
-                            tile2_go_active = 0;
+                            go_active = 0;
                             t3_mode = 1;
                             t4_mode = 3;
                             strcpy(t3_sf_text, default_scroll_msg);
@@ -321,8 +307,7 @@ int main(void)
                         }
                         else if (strcmp(rx_fifo, "|CLR|") == 0 || strcmp(rx_fifo, "|C|") == 0)
                         {
-                            tile1_stop_active = 0;
-                            tile2_go_active = 0;
+                            go_active = 0;
                             t3_mode = 1;
                             t4_mode = 1;
                             memset(t3_sf_text, 0, sizeof(t3_sf_text));
