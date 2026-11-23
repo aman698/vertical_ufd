@@ -48,6 +48,20 @@
 #define HUB75_OE                PA1        /* active low: 0 = LEDs on */
 #define HUB75_CLK               PA0
 
+/* LED driver chip: FM6124 (same init as FM6126A / ICN2038S). These chips power up
+ * with their outputs disabled, so a register init is sent first - without it the
+ * panel stays completely dark. Set to 0 for plain shift-register drivers. */
+#define HUB75_DRIVER_FM6124     1
+
+/* Row select type (A/B/C/D):
+ *   HUB75_MUX_BINARY : A/B carry the row number 0..3 into a 74HC138-type decoder
+ *   HUB75_MUX_DIRECT : A/B/C/D each switch one row directly, active LOW
+ * RGB32x16_S4_VitaliyDKZ is BINARY. If the panel has no '138' decoder and the image
+ * shows several rows lit at once, change this to HUB75_MUX_DIRECT. */
+#define HUB75_MUX_BINARY        0
+#define HUB75_MUX_DIRECT        1
+#define HUB75_MUX_TYPE          HUB75_MUX_BINARY
+
 /* Same pins as port bit masks, for GPIO_SetMode() - keep in sync with the map above */
 #define HUB75_PA_PINS           (BIT0 | BIT1 | BIT12 | BIT13 | BIT14 | BIT15)  /* CLK OE G2 B1 R1 G1 */
 #define HUB75_PC_PINS           (BIT0 | BIT1 | BIT2 | BIT3 | BIT4 | BIT5)      /* R2 B2 B A D C      */
@@ -63,9 +77,19 @@ void HUB75_ScanRoutine(void);
  *   all drawing goes to a back buffer; HUB75_Show() copies it to the panel in one step */
 void HUB75_Clear(void);
 void HUB75_WritePixel(uint8_t x, uint8_t y, uint8_t color);
+void HUB75_Fill(uint8_t color);
 void HUB75_Show(void);
 
 /* Full-panel graphic */
 void HUB75_DrawBigStop(uint8_t color);
+
+/* Wiring test - pause the scan and drive the HUB75 pins by hand:
+ *   HUB75_TestPause(1)   stop scanning (pins keep what the test sets), 0 = resume
+ *   HUB75_TestPins(n)    n = 0: all LOW, 1..13: only pin n HIGH, 14: all HIGH
+ *   HUB75_TestPinName(n) "R1  = PA14 -> HUB75 pin 1" ... for n = 1..13 */
+#define HUB75_TEST_PINS         13U
+void HUB75_TestPause(uint8_t pause);
+void HUB75_TestPins(uint8_t n);
+const char *HUB75_TestPinName(uint8_t n);
 
 #endif /* HUB75_H */
