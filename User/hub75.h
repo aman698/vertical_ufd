@@ -53,13 +53,17 @@
 #define HUB75_PC_PINS           (BIT0 | BIT1 | BIT2 | BIT3 | BIT4 | BIT5)      /* R2 B2 B A D C      */
 #define HUB75_PF_PINS           (BIT15)                                         /* LAT                */
 
-/* Init and refresh: call HUB75_ScanRoutine() continuously (one address row per call) */
+/* Init and refresh:
+ *   HUB75_ScanRoutine() outputs one address row. Call it at a fixed rate from a
+ *   timer interrupt so every row gets the same on-time (no flicker). */
 void HUB75_Init(void);
 void HUB75_ScanRoutine(void);
 
-/* Frame buffer */
+/* Frame buffer (double buffered):
+ *   all drawing goes to a back buffer; HUB75_Show() copies it to the panel in one step */
 void HUB75_Clear(void);
 void HUB75_WritePixel(uint8_t x, uint8_t y, uint8_t color);
+void HUB75_Show(void);
 
 /* Full-panel graphic */
 void HUB75_DrawBigStop(uint8_t color);

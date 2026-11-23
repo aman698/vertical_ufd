@@ -25,6 +25,7 @@
 #define DMD_GROUPS_PER_TILE     4U
 #define DMD_BYTES_PER_GROUP     (DMD_TILE_WIDTH / 8U)
 #define DMD_BYTES_PER_TILE      (DMD_GROUPS_PER_TILE * DMD_BYTES_PER_GROUP)
+#define DMD_BYTES_PER_ROW       (DMD_TILES * DMD_BYTES_PER_TILE)    /* bytes shifted per scan row */
 
 /* Pin map from the supplied schematic. */
 #define DMD_OE_PORT             PA
@@ -40,16 +41,25 @@
 #define DMD_DATA_PORT           PF
 #define DMD_DATA_PIN            BIT2       /* HUB12 R/DATA, pin 12 */
 
-/* Frame buffer: one byte per pixel, 1 = LED on */
-extern volatile uint8_t display_buffer[DMD_HEIGHT][DMD_WIDTH];
+/* Same pins as GPIO pin data registers (one store per write, safe from an ISR) */
+#define DMD_OE_IO               PA2
+#define DMD_A_IO                PA3
+#define DMD_B_IO                PA4
+#define DMD_CLK_IO              PA6
+#define DMD_LAT_IO              PA7
+#define DMD_DATA_IO             PF2
 
-/* Init and refresh: call DMD_ScanRoutine() continuously (one row group per call) */
+/* Init and refresh:
+ *   DMD_ScanRoutine() outputs one row group. Call it at a fixed rate from a
+ *   timer interrupt so every row group gets the same on-time (no flicker). */
 void DMD_Init(void);
 void DMD_ScanRoutine(void);
 
-/* Frame buffer */
+/* Frame buffer (double buffered):
+ *   all drawing goes to a back buffer; DMD_Show() copies it to the panel in one step */
 void DMD_Clear(void);
 void DMD_WritePixel(uint8_t x, uint8_t y, uint8_t state);
+void DMD_Show(void);
 
 /* 5x7 font */
 void DMD_DrawChar(uint8_t x, uint8_t y, char c);

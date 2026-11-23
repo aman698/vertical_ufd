@@ -6,7 +6,13 @@
 #include <string.h>
 #include "hub12.h"
 
-volatile uint8_t display_buffer[DMD_HEIGHT][DMD_WIDTH];
+/* Frame buffers: 1 bit per pixel (1 = LED on), already in shift order [scan row][byte].
+ *   dmd_back  : every drawing function writes here (main loop)
+ *   dmd_front : DMD_ScanRoutine() reads here (timer interrupt)
+ * DMD_Show() copies back -> front with interrupts off, so a half-drawn frame
+ * (e.g. right after DMD_Clear) is never put on the panel. */
+static uint8_t dmd_back[DMD_SCAN_ROWS][DMD_BYTES_PER_ROW];
+static volatile uint8_t dmd_front[DMD_SCAN_ROWS][DMD_BYTES_PER_ROW];
 static volatile uint8_t scan_row;
 
 static const char * const go_art[16] = {
@@ -258,18 +264,14 @@ static const uint8_t Font5x7[][5] = {
     {0x0C,0x50,0x50,0x50,0x3C}, {0x44,0x64,0x54,0x4C,0x44}
 };
 
-static inline void WritePin(GPIO_T *port, uint32_t pin, uint8_t value)
-{
-    if (value) port->DOUT |= pin;
-    else       port->DOUT &= ~pin;
-}
-
-static inline void DMD_OE(uint8_t value)    { WritePin(DMD_OE_PORT,   DMD_OE_PIN,   value); }
-static inline void DMD_A(uint8_t value)     { WritePin(DMD_A_PORT,    DMD_A_PIN,    value); }
-static inline void DMD_B(uint8_t value)     { WritePin(DMD_B_PORT,    DMD_B_PIN,    value); }
-static inline void DMD_CLK(uint8_t value)   { WritePin(DMD_CLK_PORT,  DMD_CLK_PIN,  value); }
-static inline void DMD_LAT(uint8_t value)   { WritePin(DMD_LAT_PORT,  DMD_LAT_PIN,  value); }
-static inline void DMD_DATA(uint8_t value)  { WritePin(DMD_DATA_PORT, DMD_DATA_PIN, value); }
+/* Pin writes go to the per-pin data registers: a single store, no read-modify-write
+ * of the whole port (faster, and cannot disturb other pins from inside the ISR). */
+static inline void DMD_OE(uint8_t value)    { DMD_OE_IO   = value; }
+static inline void DMD_A(uint8_t value)     { DMD_A_IO    = value; }
+static inline void DMD_B(uint8_t value)     { DMD_B_IO    = value; }
+static inline void DMD_CLK(uint8_t value)   { DMD_CLK_IO  = value; }
+static inline void DMD_LAT(uint8_t value)   { DMD_LAT_IO  = value; }
+static inline void DMD_DATA(uint8_t value)  { DMD_DATA_IO = value; }
 
 void DMD_Init(void)
 {
@@ -279,20 +281,47 @@ void DMD_Init(void)
     DMD_OE(1);                  
     DMD_A(0); DMD_B(0);
     DMD_CLK(0); DMD_LAT(0);
-    DMD_DATA(1);                
+    DMD_DATA(1);
     DMD_Clear();
+    DMD_Show();
     scan_row = 0;
 }
 
 void DMD_Clear(void)
 {
-    memset((void *)display_buffer, 0, sizeof(display_buffer));
+    memset(dmd_back, 0, sizeof(dmd_back));
 }
 
+/* Pixel -> bit position in the shift stream (same order the panel expects):
+ *   scan row = (y % 16) % 4
+ *   byte     = ((last tile - tile) * 4 + x / 8) * 4 + (3 - (y % 16) / 4)
+ *   bit      = 7 - x % 8      (leftmost pixel is shifted first)            */
 void DMD_WritePixel(uint8_t x, uint8_t y, uint8_t state)
 {
-    if ((x < DMD_WIDTH) && (y < DMD_HEIGHT))
-        display_buffer[y][x] = state ? 1U : 0U;
+    uint8_t tile, ty, row, idx, mask;
+
+    if ((x >= DMD_WIDTH) || (y >= DMD_HEIGHT))
+        return;
+
+    tile = y / DMD_TILE_HEIGHT;
+    ty   = y % DMD_TILE_HEIGHT;
+    row  = ty % DMD_SCAN_ROWS;
+    idx  = (uint8_t)(((DMD_TILES - 1U - tile) * DMD_BYTES_PER_GROUP + x / 8U) * DMD_GROUPS_PER_TILE
+                     + (DMD_GROUPS_PER_TILE - 1U - ty / DMD_SCAN_ROWS));
+    mask = (uint8_t)(0x80U >> (x % 8U));
+
+    if (state) dmd_back[row][idx] |= mask;
+    else       dmd_back[row][idx] &= (uint8_t)~mask;
+}
+
+/* Publish the back buffer to the panel (192 bytes, a few microseconds) */
+void DMD_Show(void)
+{
+    uint32_t primask = __get_PRIMASK();
+
+    __disable_irq();
+    memcpy((void *)dmd_front, dmd_back, sizeof(dmd_back));
+    __set_PRIMASK(primask);
 }
 
 void DMD_DrawChar(uint8_t x, uint8_t y, char c)
@@ -344,17 +373,6 @@ void DMD_DrawFont14x7String(uint8_t x, uint8_t y, const char *text)
     }
 }
 
-static inline void DMD_WriteByte(uint8_t value)
-{
-    int8_t bit;
-    for (bit = 7; bit >= 0; --bit)
-    {
-        DMD_DATA((value & (1U << bit)) ? 0U : 1U);
-        DMD_CLK(1);
-        DMD_CLK(0);
-    }
-}
-
 void DMD_DrawScrollString(int16_t start_x, uint8_t y, const char *text)
 {
     int16_t cursor_x = start_x;
@@ -387,45 +405,36 @@ void DMD_DrawScrollString(int16_t start_x, uint8_t y, const char *text)
     }
 }
 
+/* One data bit: MSB of v (leftmost pixel) on DATA, then a CLK pulse */
+#define DMD_SHIFT_BIT()   do { *data = (v >> 7) & 1U; *clk = 1U; *clk = 0U; v <<= 1; } while (0)
+
+/* Output one row group (called from the timer interrupt):
+ * LEDs off, select row, shift 48 bytes, latch, LEDs on.
+ * The DATA/CLK register addresses stay in CPU registers and the 8 bits are
+ * unrolled, so each bit costs ~10 cycles instead of ~21. */
 void DMD_ScanRoutine(void)
 {
-    int8_t tile;
-    uint8_t group, byte_index, x;
-    uint8_t value;
-    uint8_t y;
-    uint8_t address;
     static const uint8_t scan_row_order[DMD_SCAN_ROWS] = {3U, 0U, 1U, 2U};
+    volatile uint32_t * const data = &DMD_DATA_IO;
+    volatile uint32_t * const clk  = &DMD_CLK_IO;
+    const volatile uint8_t *p = dmd_front[scan_row];
+    uint8_t address = scan_row_order[scan_row];
+    uint32_t i, v;
 
-    DMD_OE(1);                  
-    
-    address = scan_row_order[scan_row];
-    DMD_A(scan_row & 1U);
-    DMD_B((scan_row >> 1) & 1U);
+    DMD_OE(1);                              /* LEDs off while shifting */
     DMD_A(address & 1U);
     DMD_B((address >> 1) & 1U);
 
-    for (tile = (int8_t)DMD_TILES - 1; tile >= 0; --tile)
+    for (i = 0; i < DMD_BYTES_PER_ROW; i++)
     {
-        for (byte_index = 0; byte_index < DMD_BYTES_PER_GROUP; ++byte_index)
-        {
-            for (group = 0; group < DMD_GROUPS_PER_TILE; ++group)
-            {
-                y = (uint8_t)tile * DMD_TILE_HEIGHT + scan_row + (DMD_GROUPS_PER_TILE - 1U - group) * DMD_SCAN_ROWS;
-                
-                value = 0;
-                for (x = 0; x < 8U; ++x)
-                {
-                    if (display_buffer[y][byte_index * 8U + x])
-                        value |= (uint8_t)(1U << (7U - x));
-                }
-                DMD_WriteByte(value);
-            }
-        }
+        v = (uint8_t)~p[i];                 /* HUB12 data is active low: LED on = 0 */
+        DMD_SHIFT_BIT(); DMD_SHIFT_BIT(); DMD_SHIFT_BIT(); DMD_SHIFT_BIT();
+        DMD_SHIFT_BIT(); DMD_SHIFT_BIT(); DMD_SHIFT_BIT(); DMD_SHIFT_BIT();
     }
 
-    DMD_LAT(1);                 
+    DMD_LAT(1);
     DMD_LAT(0);
-    DMD_OE(0);
+    DMD_OE(0);                              /* LEDs on */
 
     scan_row = (scan_row + 1U) & 0x03U;
 }

@@ -21,7 +21,15 @@ static uint8_t stop_active = 1;
 static uint8_t go_active = 0;
 
 static int16_t scroll_x = DMD_WIDTH;
-static uint32_t scroll_speed_threshold = 10UL;
+
+/* Display refresh: the TIMER0 interrupt outputs one row group of every panel per tick,
+ * so all rows get the same on-time no matter what the main loop is doing. */
+#define SCAN_RATE_HZ        2000U                               /* 4 row groups -> 500 Hz full refresh */
+#define MS_TO_TICKS(ms)     ((uint32_t)(ms) * SCAN_RATE_HZ / 1000U)
+#define HEARTBEAT_MS        400U                                /* LED toggle period            */
+#define SCROLL_STEP_MS      30U                                 /* 1 pixel per step: smaller = faster */
+
+static volatile uint32_t g_ticks;                               /* +1 every TIMER0 interrupt */
 
 /* Text panels - names follow the command prefixes:
  *   t3_* (T3.. commands) -> Tile 2, y 16..31
@@ -59,6 +67,10 @@ void SYS_Init(void)
                        CLK_CLKSEL1_UART1SEL_HIRC,
                        CLK_CLKDIV0_UART1(1));
 
+    /* TIMER0 clock: display refresh tick */
+    CLK_EnableModuleClock(TMR0_MODULE);
+    CLK_SetModuleClock(TMR0_MODULE, CLK_CLKSEL1_TMR0SEL_HIRC, 0);
+
     /* PB.2 = RX, PB.3 = TX */
     SYS->GPB_MFPL &= ~(SYS_GPB_MFPL_PB2MFP_Msk |
                        SYS_GPB_MFPL_PB3MFP_Msk);
@@ -86,6 +98,29 @@ void UART1_SendString(const char *str)
     {
         while (UART_GET_TX_FULL(UART1));
         UART_WRITE(UART1, *str++);
+    }
+}
+
+/* TIMER0 periodic interrupt at SCAN_RATE_HZ (48 MHz HIRC, no prescaler) */
+static void Display_Timer_Start(void)
+{
+    TIMER0->CTL = TIMER_PERIODIC_MODE;          /* prescaler 0 */
+    TIMER0->CMP = __HIRC / SCAN_RATE_HZ;        /* 24000 counts = 500 us */
+    TIMER_EnableInt(TIMER0);
+    NVIC_EnableIRQ(TMR0_IRQn);
+    TIMER_Start(TIMER0);
+}
+
+/* Panel refresh: one row group of each panel per interrupt */
+void TMR0_IRQHandler(void)
+{
+    if (TIMER_GetIntFlag(TIMER0))
+    {
+        TIMER_ClearIntFlag(TIMER0);
+
+        DMD_ScanRoutine();      /* HUB12: GO + text tiles */
+        HUB75_ScanRoutine();    /* HUB75: STOP panel      */
+        g_ticks++;
     }
 }
 
@@ -146,6 +181,8 @@ static void Update_Display_Buffer(void)
         if (strlen(t4_su_text) > 0) DMD_DrawString(0, 32, t4_su_text);
         if (strlen(t4_sl_text) > 0) DMD_DrawString(0, 40, t4_sl_text);
     }
+
+    DMD_Show();     /* put the finished frame on the panel in one step */
 }
 
 /* Redraw the HUB75 panel - only needed when the STOP state changes */
@@ -157,6 +194,8 @@ static void Update_Stop_Panel(void)
     {
         HUB75_DrawBigStop(HUB75_RED);
     }
+
+    HUB75_Show();
 }
 
 /* Copy src into a fixed-size buffer, truncating if too long.
@@ -257,8 +296,8 @@ static uint8_t Parse_Custom_Command(char *rx_str)
 
 int main(void)
 {
-    uint32_t heartbeat_counter = 0;
-    uint32_t scroll_counter = 0;
+    uint32_t heartbeat_tick = 0;
+    uint32_t scroll_tick = 0;
     static char rx_fifo[256];   /* static: keeps 256 bytes off the 512-byte stack */
     uint8_t index = 0;
 
@@ -272,19 +311,19 @@ int main(void)
     Update_Display_Buffer();
     Update_Stop_Panel();
 
+    Display_Timer_Start();      /* panels refresh from TMR0_IRQHandler from here on */
+
     UART1_SendString("\r\nTOLL PLAZA UFD SYSTEM READY\r\n");
 
     while (1)
     {
-        /* 1. MATRIX SCAN ROUTINE (one row of each panel type per loop) */
-        DMD_ScanRoutine();      /* HUB12: GO + text tiles */
-        HUB75_ScanRoutine();    /* HUB75: STOP panel      */
+        /* 1. MATRIX SCAN ROUTINE: runs in TMR0_IRQHandler at SCAN_RATE_HZ */
 
-        /* 2. HEARTBEAT LED BLINK (~400ms tick) */
-        if (++heartbeat_counter > 2500UL)
+        /* 2. HEARTBEAT LED BLINK (every HEARTBEAT_MS) */
+        if ((uint32_t)(g_ticks - heartbeat_tick) >= MS_TO_TICKS(HEARTBEAT_MS))
         {
+            heartbeat_tick = g_ticks;
             PF5 ^= 1;
-            heartbeat_counter = 0;
         }
 
         /* 3. NON-BLOCKING UART COMMAND POLLING */
@@ -353,6 +392,7 @@ int main(void)
                             memset(t4_su_text, 0, sizeof(t4_su_text));
                             memset(t4_sl_text, 0, sizeof(t4_sl_text));
                             DMD_Clear();
+                            DMD_Show();
                             UART1_SendString("ACK: CLR\r\n");
                         }
                         else if (Parse_Custom_Command(rx_fifo))
@@ -388,10 +428,10 @@ int main(void)
             }
         }
 
-        /* 4. SCROLLING TICKER CHECK */
-        if (++scroll_counter > scroll_speed_threshold)
+        /* 4. SCROLLING TICKER CHECK (every SCROLL_STEP_MS) */
+        if ((uint32_t)(g_ticks - scroll_tick) >= MS_TO_TICKS(SCROLL_STEP_MS))
         {
-            scroll_counter = 0;
+            scroll_tick = g_ticks;
             scroll_x--;
 
             int16_t min_x = -(int16_t)(64 * 9U);

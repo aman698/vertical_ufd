@@ -10,8 +10,11 @@
 /* Shift data already in panel order: [address row][clock].
  * Each byte holds the 6 data lines for one CLK pulse:
  *   bit0 R1, bit1 G1, bit2 B1   (upper half, y 0..7)
- *   bit3 R2, bit4 G2, bit5 B2   (lower half, y 8..15) */
-static volatile uint8_t hub75_frame[HUB75_SCAN_ROWS][HUB75_CLOCKS_PER_ROW];
+ *   bit3 R2, bit4 G2, bit5 B2   (lower half, y 8..15)
+ * Double buffered: drawing goes to hub75_back (main loop), the scan reads
+ * hub75_front (timer interrupt), HUB75_Show() copies back -> front. */
+static uint8_t hub75_back[HUB75_SCAN_ROWS][HUB75_CLOCKS_PER_ROW];
+static volatile uint8_t hub75_front[HUB75_SCAN_ROWS][HUB75_CLOCKS_PER_ROW];
 static volatile uint8_t hub75_row;
 
 static const char * const stop_art[16] = {
@@ -57,12 +60,23 @@ void HUB75_Init(void)
     HUB75_R2 = 0; HUB75_G2 = 0; HUB75_B2 = 0;
 
     HUB75_Clear();
+    HUB75_Show();
     hub75_row = 0;
 }
 
 void HUB75_Clear(void)
 {
-    memset((void *)hub75_frame, 0, sizeof(hub75_frame));
+    memset(hub75_back, 0, sizeof(hub75_back));
+}
+
+/* Publish the back buffer to the panel (256 bytes, a few microseconds) */
+void HUB75_Show(void)
+{
+    uint32_t primask = __get_PRIMASK();
+
+    __disable_irq();
+    memcpy((void *)hub75_front, hub75_back, sizeof(hub75_back));
+    __set_PRIMASK(primask);
 }
 
 /* Pixel -> shift position, same as DMD_STM32 pattern 102 (pixbase 1, LPS):
@@ -84,14 +98,15 @@ void HUB75_WritePixel(uint8_t x, uint8_t y, uint8_t color)
     clk    = (uint8_t)(x * HUB75_ROWS_PER_SCAN) + ((half_y < HUB75_SCAN_ROWS) ? 1U : 0U);
     shift  = (y < HUB75_HALF_HEIGHT) ? 0U : 3U;
 
-    hub75_frame[row][clk] = (uint8_t)((hub75_frame[row][clk] & ~(0x07U << shift)) |
-                                      ((color & 0x07U) << shift));
+    hub75_back[row][clk] = (uint8_t)((hub75_back[row][clk] & ~(0x07U << shift)) |
+                                     ((color & 0x07U) << shift));
 }
 
-/* Output one address row: LEDs off, select row, shift 64 clocks, latch, LEDs on */
+/* Output one address row (called from the timer interrupt):
+ * LEDs off, select row, shift 64 clocks, latch, LEDs on */
 void HUB75_ScanRoutine(void)
 {
-    const volatile uint8_t *p = hub75_frame[hub75_row];
+    const volatile uint8_t *p = hub75_front[hub75_row];
     uint8_t i, v;
 
     HUB75_OE = 1;                                  /* LEDs off while shifting */
