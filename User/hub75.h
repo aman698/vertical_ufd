@@ -77,7 +77,7 @@ void HUB75_WritePixel(uint8_t x, uint8_t y, uint8_t color);
 void HUB75_Fill(uint8_t color);
 void HUB75_Show(void);
 
-/* Full-panel graphic */
-void HUB75_DrawBigStop(uint8_t color);
+/* Full-panel graphic: GO with up arrow (main.c draws it in HUB75_GREEN) */
+void HUB75_DrawBigGo(uint8_t color);
 
 #endif /* HUB75_H */

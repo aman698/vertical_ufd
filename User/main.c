@@ -1,7 +1,7 @@
 /******************************************************************************
  * @file     main.c
  * @brief    Vertical UFD (toll plaza)
- *             Upper UFD : HUB75 RGB panel = STOP, HUB12 panel 1 = GO
+ *             Upper UFD : HUB75 RGB panel = GO (green), HUB12 panel 1 = STOP (red mono)
  *             Lower UFD : HUB12 panel 2  = big scrolling text
  *                         HUB12 panel 3  = fare / static text (default FARE / RS250)
  *           Control   : VRS UFD protocol on UART1 (PB2 RXD, PB3 TXD, 9600 8N1)
@@ -28,7 +28,7 @@
 #define DEFAULT_SPEED       7U      /* scroll speed 1..9 (9 = fastest); 7 = 30 ms per pixel */
 
 /* HUB12 panel positions (y of the top row) */
-#define GO_Y                0U      /* panel 1: GO            */
+#define STOP_Y              0U      /* panel 1: STOP           */
 #define P2_Y                16U     /* panel 2: scrolling text */
 #define P3_Y                32U     /* panel 3: fare / static  */
 
@@ -51,8 +51,8 @@
 static char default_scroll_msg[64] = "WELCOME TO TOLL PLAZA";
 
 /* Upper UFD */
-static uint8_t stop_active  = 1;    /* HUB75: red STOP                        */
-static uint8_t go_active    = 0;    /* HUB12 panel 1: GO                      */
+static uint8_t stop_active  = 1;    /* HUB12 panel 1: STOP                    */
+static uint8_t go_active    = 0;    /* HUB75: green GO                        */
 static uint8_t signal_blink = 0;    /* |C|8|x|1| "moving" -> STOP / GO blink  */
 static uint8_t blink_on     = 1;
 static uint8_t upper_test   = 0;    /* |C|5| upper UFD all LEDs on            */
@@ -147,8 +147,8 @@ void TMR0_IRQHandler(void)
     {
         TIMER_ClearIntFlag(TIMER0);
 
-        DMD_ScanRoutine();      /* HUB12: GO + text panels */
-        HUB75_ScanRoutine();    /* HUB75: STOP panel       */
+        DMD_ScanRoutine();      /* HUB12: STOP + text panels */
+        HUB75_ScanRoutine();    /* HUB75: GO panel           */
         g_ticks++;
     }
 }
@@ -330,9 +330,9 @@ static void Update_Display_Buffer(void)
     DMD_Clear();
 
     if (upper_test)
-        Fill_Rows(GO_Y, DMD_TILE_HEIGHT);
-    else if (go_active && blink_on)
-        DMD_DrawBigGo();
+        Fill_Rows(STOP_Y, DMD_TILE_HEIGHT);
+    else if (stop_active && blink_on)
+        DMD_DrawBigStop();
 
     if (lower_test)
     {
@@ -348,21 +348,21 @@ static void Update_Display_Buffer(void)
 }
 
 /* Redraw the HUB75 panel */
-static void Update_Stop_Panel(void)
+static void Update_Go_Panel(void)
 {
     HUB75_Clear();
 
     if (upper_test)
         HUB75_Fill(HUB75_WHITE);
-    else if (stop_active && blink_on)
-        HUB75_DrawBigStop(HUB75_RED);
+    else if (go_active && blink_on)
+        HUB75_DrawBigGo(HUB75_GREEN);
 
     HUB75_Show();
 }
 
 static void Refresh_All(void)
 {
-    Update_Stop_Panel();
+    Update_Go_Panel();
     Update_Display_Buffer();
 }
 
@@ -391,7 +391,7 @@ static void Set_Speed(uint16_t speed)
     scroll_step_ms = 10U + (9U - speed) * 10U;
 }
 
-/* 0 = STOP (HUB75), 1 = GO (HUB12 panel 1); moving = blink */
+/* 0 = STOP (HUB12 panel 1, red), 1 = GO (HUB75, green); moving = blink */
 static void Set_Signal(uint8_t go, uint8_t moving)
 {
     stop_active  = (go == 0U);
@@ -435,7 +435,7 @@ static void Restore_Defaults(void)
  *   |C|4|2|TOP~BOTTOM|s|f| panel 2: static top line + scrolling bottom line
  *   |C|4|G| / |C|4|R|      relay on / off (no relay fitted: ACK only)
  *   |C|5|  upper UFD on    |C|6|  clear text    |C|7|  lower UFD on
- *   |C|8|0|m|  STOP        |C|8|1|m|  GO        m: 0 = static, 1 = moving (blink)
+ *   |C|8|0|m|  STOP (mono panel 1)   |C|8|1|m|  GO (RGB, green)   m: 0 = static, 1 = moving (blink)
  *   VRS                    configuration menu
  *   '$' in text is drawn as the Rupee sign.
  * ========================================================================== */
@@ -622,7 +622,7 @@ static void Menu_Input(char *line)
     menu_state = MENU_NONE;
     if (strcmp(line, "1") == 0)
     {
-        UART1_SendString("MODULE: VERTICAL UFD - HUB75 32x16 STOP + HUB12 32x48 (GO / TEXT / FARE)\r\n");
+        UART1_SendString("MODULE: VERTICAL UFD - HUB75 32x16 GO + HUB12 32x48 (STOP / TEXT / FARE)\r\n");
     }
     else if (strcmp(line, "2") == 0)
     {

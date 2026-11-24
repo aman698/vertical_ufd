@@ -15,22 +15,22 @@ static uint8_t dmd_back[DMD_SCAN_ROWS][DMD_BYTES_PER_ROW];
 static volatile uint8_t dmd_front[DMD_SCAN_ROWS][DMD_BYTES_PER_ROW];
 static volatile uint8_t scan_row;
 
-static const char * const go_art[16] = {
+static const char * const stop_art[16] = {
     "                                ",
-    "       X      XXXXXXX  XXXXXXX   ",
-    "      XXX     XXXXXXX  XXXXXXX   ",
-    "     XXXXX    XX       XX   XX   ",
-    "    XXXXXXX   XX       XX   XX   ",
-    "   XXXXXXXXX  XX       XX   XX   ",
-    " XXXXXXXXXXX  XX       XX   XX   ",
-    "     XXXXX    XX  XXX  XX   XX   ",
-    "     XXXXX    XX  XXX  XX   XX   ",
-    "     XXXXX    XX   XX  XX   XX   ",
-    "     XXXXX    XX   XX  XX   XX   ",
-    "     XXXXX    XX   XX  XX   XX   ",
-    "     XXXXX    XX   XX  XX   XX   ",
-    "     XXXXX    XXXXXXX  XXXXXXX   ",
-    "     XXXXX    XXXXXXX  XXXXXXX   ",
+    " XXXXXXX XXXXXXX XXXXXXX XXXXXXX",
+    " XXXXXXX XXXXXXX XXXXXXX XXXXXXX",
+    " XX        XXX   XX   XX XX   XX",
+    " XX        XXX   XX   XX XX   XX",
+    " XX        XXX   XX   XX XX   XX",
+    " XX        XXX   XX   XX XX   XX",
+    " XXXXXXX   XXX   XX   XX XXXXXXX",
+    " XXXXXXX   XXX   XX   XX XXXXXXX",
+    "      XX   XXX   XX   XX XX     ",
+    "      XX   XXX   XX   XX XX     ",
+    "      XX   XXX   XX   XX XX     ",
+    "      XX   XXX   XX   XX XX     ",
+    " XXXXXXX   XXX   XXXXXXX XX     ",
+    " XXXXXXX   XXX   XXXXXXX XX     ",
     "                                "
 };
 
@@ -441,12 +441,12 @@ void DMD_ScanRoutine(void)
     scan_row = (scan_row + 1U) & 0x03U;
 }
 
-void DMD_DrawBigGo(void)
+void DMD_DrawBigStop(void)
 {
     uint8_t x, y;
     for(y = 0; y < 16U; y++) {
         for(x = 0; x < 32U; x++) {
-            if(go_art[y][x] == 'X') DMD_WritePixel(x, y, 1);   /* Tile 1: y 0..15 */
+            if(stop_art[y][x] == 'X') DMD_WritePixel(x, y, 1);   /* Tile 1: y 0..15 */
         }
     }
 }

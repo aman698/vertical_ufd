@@ -21,22 +21,23 @@ static volatile uint8_t hub75_row;
  * did when HUB75_CLK_DELAY = 10 was tested on the hardware. */
 static volatile uint8_t hub75_clk_delay = HUB75_CLK_DELAY;
 
-static const char * const stop_art[16] = {
+/* GO with an up arrow (drawn in green) */
+static const char * const go_art[16] = {
     "                                ",
-    " XXXXXXX XXXXXXX XXXXXXX XXXXXXX",
-    " XXXXXXX XXXXXXX XXXXXXX XXXXXXX",
-    " XX        XXX   XX   XX XX   XX",
-    " XX        XXX   XX   XX XX   XX",
-    " XX        XXX   XX   XX XX   XX",
-    " XX        XXX   XX   XX XX   XX",
-    " XXXXXXX   XXX   XX   XX XXXXXXX",
-    " XXXXXXX   XXX   XX   XX XXXXXXX",
-    "      XX   XXX   XX   XX XX     ",
-    "      XX   XXX   XX   XX XX     ",
-    "      XX   XXX   XX   XX XX     ",
-    "      XX   XXX   XX   XX XX     ",
-    " XXXXXXX   XXX   XXXXXXX XX     ",
-    " XXXXXXX   XXX   XXXXXXX XX     ",
+    "       X      XXXXXXX  XXXXXXX  ",
+    "      XXX     XXXXXXX  XXXXXXX  ",
+    "     XXXXX    XX       XX   XX  ",
+    "    XXXXXXX   XX       XX   XX  ",
+    "   XXXXXXXXX  XX       XX   XX  ",
+    " XXXXXXXXXXX  XX       XX   XX  ",
+    "     XXXXX    XX  XXX  XX   XX  ",
+    "     XXXXX    XX  XXX  XX   XX  ",
+    "     XXXXX    XX   XX  XX   XX  ",
+    "     XXXXX    XX   XX  XX   XX  ",
+    "     XXXXX    XX   XX  XX   XX  ",
+    "     XXXXX    XX   XX  XX   XX  ",
+    "     XXXXX    XXXXXXX  XXXXXXX  ",
+    "     XXXXX    XXXXXXX  XXXXXXX  ",
     "                                "
 };
 
@@ -221,12 +222,12 @@ void HUB75_ScanRoutine(void)
     hub75_row = (uint8_t)((hub75_row + 1U) % HUB75_SCAN_ROWS);
 }
 
-void HUB75_DrawBigStop(uint8_t color)
+void HUB75_DrawBigGo(uint8_t color)
 {
     uint8_t x, y;
     for (y = 0; y < HUB75_HEIGHT; y++) {
         for (x = 0; x < HUB75_WIDTH; x++) {
-            if (stop_art[y][x] == 'X') HUB75_WritePixel(x, y, color);
+            if (go_art[y][x] == 'X') HUB75_WritePixel(x, y, color);
         }
     }
 }

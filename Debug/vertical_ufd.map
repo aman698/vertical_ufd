@@ -485,9 +485,9 @@ END GROUP
  .text.DMD_ScanRoutine
                 0x000005f0       0xd8 ./User/hub12.o
                 0x000005f0                DMD_ScanRoutine
- .text.DMD_DrawBigGo
+ .text.DMD_DrawBigStop
                 0x000006c8       0x38 ./User/hub12.o
-                0x000006c8                DMD_DrawBigGo
+                0x000006c8                DMD_DrawBigStop
  .text.HUB75_InitDelay
                 0x00000700       0x14 ./User/hub75.o
  .text.HUB75_InitClock
@@ -516,9 +516,9 @@ END GROUP
  .text.HUB75_ScanRoutine
                 0x0000096c       0xfc ./User/hub75.o
                 0x0000096c                HUB75_ScanRoutine
- .text.HUB75_DrawBigStop
+ .text.HUB75_DrawBigGo
                 0x00000a68       0x3c ./User/hub75.o
-                0x00000a68                HUB75_DrawBigStop
+                0x00000a68                HUB75_DrawBigGo
  .text.Display_Timer_Start
                 0x00000aa4       0x48 ./User/main.o
  .text.UART1_GetByte
@@ -548,7 +548,7 @@ END GROUP
                 0x00000f20       0x8c ./User/main.o
  .text.Parse_Custom_Command
                 0x00000fac      0x208 ./User/main.o
- .text.Update_Stop_Panel
+ .text.Update_Go_Panel
                 0x000011b4       0x40 ./User/main.o
  .text.Fill_Rows
                 0x000011f4       0x2e ./User/main.o
@@ -838,201 +838,201 @@ END GROUP
  .rodata.Font14x7_Get
                 0x00002f20      0x168 ./User/hub12.o
  .rodata.str1.4
-                0x00003088      0x166 ./User/hub12.o
- *fill*         0x000031ee        0x2 
+                0x00003088       0xd5 ./User/hub12.o
+ *fill*         0x0000315d        0x3 
  .rodata.FONT14X7_0
+                0x00003160        0xe ./User/hub12.o
+ *fill*         0x0000316e        0x2 
+ .rodata.FONT14X7_1
+                0x00003170        0xe ./User/hub12.o
+ *fill*         0x0000317e        0x2 
+ .rodata.FONT14X7_2
+                0x00003180        0xe ./User/hub12.o
+ *fill*         0x0000318e        0x2 
+ .rodata.FONT14X7_3
+                0x00003190        0xe ./User/hub12.o
+ *fill*         0x0000319e        0x2 
+ .rodata.FONT14X7_4
+                0x000031a0        0xe ./User/hub12.o
+ *fill*         0x000031ae        0x2 
+ .rodata.FONT14X7_5
+                0x000031b0        0xe ./User/hub12.o
+ *fill*         0x000031be        0x2 
+ .rodata.FONT14X7_6
+                0x000031c0        0xe ./User/hub12.o
+ *fill*         0x000031ce        0x2 
+ .rodata.FONT14X7_7
+                0x000031d0        0xe ./User/hub12.o
+ *fill*         0x000031de        0x2 
+ .rodata.FONT14X7_8
+                0x000031e0        0xe ./User/hub12.o
+ *fill*         0x000031ee        0x2 
+ .rodata.FONT14X7_9
                 0x000031f0        0xe ./User/hub12.o
  *fill*         0x000031fe        0x2 
- .rodata.FONT14X7_1
+ .rodata.FONT14X7_A
                 0x00003200        0xe ./User/hub12.o
  *fill*         0x0000320e        0x2 
- .rodata.FONT14X7_2
+ .rodata.FONT14X7_AMPERSAND
                 0x00003210        0xe ./User/hub12.o
  *fill*         0x0000321e        0x2 
- .rodata.FONT14X7_3
+ .rodata.FONT14X7_APOSTROPHE
                 0x00003220        0xe ./User/hub12.o
  *fill*         0x0000322e        0x2 
- .rodata.FONT14X7_4
+ .rodata.FONT14X7_B
                 0x00003230        0xe ./User/hub12.o
  *fill*         0x0000323e        0x2 
- .rodata.FONT14X7_5
+ .rodata.FONT14X7_BACKSLASH
                 0x00003240        0xe ./User/hub12.o
  *fill*         0x0000324e        0x2 
- .rodata.FONT14X7_6
+ .rodata.FONT14X7_C
                 0x00003250        0xe ./User/hub12.o
  *fill*         0x0000325e        0x2 
- .rodata.FONT14X7_7
+ .rodata.FONT14X7_COLON
                 0x00003260        0xe ./User/hub12.o
  *fill*         0x0000326e        0x2 
- .rodata.FONT14X7_8
+ .rodata.FONT14X7_COMMA
                 0x00003270        0xe ./User/hub12.o
  *fill*         0x0000327e        0x2 
- .rodata.FONT14X7_9
+ .rodata.FONT14X7_D
                 0x00003280        0xe ./User/hub12.o
  *fill*         0x0000328e        0x2 
- .rodata.FONT14X7_A
+ .rodata.FONT14X7_DOT
                 0x00003290        0xe ./User/hub12.o
  *fill*         0x0000329e        0x2 
- .rodata.FONT14X7_AMPERSAND
+ .rodata.FONT14X7_E
                 0x000032a0        0xe ./User/hub12.o
  *fill*         0x000032ae        0x2 
- .rodata.FONT14X7_APOSTROPHE
+ .rodata.FONT14X7_EQUALS
                 0x000032b0        0xe ./User/hub12.o
  *fill*         0x000032be        0x2 
- .rodata.FONT14X7_B
+ .rodata.FONT14X7_EXCLAMATION
                 0x000032c0        0xe ./User/hub12.o
  *fill*         0x000032ce        0x2 
- .rodata.FONT14X7_BACKSLASH
+ .rodata.FONT14X7_F
                 0x000032d0        0xe ./User/hub12.o
  *fill*         0x000032de        0x2 
- .rodata.FONT14X7_C
+ .rodata.FONT14X7_G
                 0x000032e0        0xe ./User/hub12.o
  *fill*         0x000032ee        0x2 
- .rodata.FONT14X7_COLON
+ .rodata.FONT14X7_H
                 0x000032f0        0xe ./User/hub12.o
  *fill*         0x000032fe        0x2 
- .rodata.FONT14X7_COMMA
+ .rodata.FONT14X7_HASH
                 0x00003300        0xe ./User/hub12.o
  *fill*         0x0000330e        0x2 
- .rodata.FONT14X7_D
+ .rodata.FONT14X7_HYPHEN
                 0x00003310        0xe ./User/hub12.o
  *fill*         0x0000331e        0x2 
- .rodata.FONT14X7_DOT
+ .rodata.FONT14X7_I
                 0x00003320        0xe ./User/hub12.o
  *fill*         0x0000332e        0x2 
- .rodata.FONT14X7_E
+ .rodata.FONT14X7_J
                 0x00003330        0xe ./User/hub12.o
  *fill*         0x0000333e        0x2 
- .rodata.FONT14X7_EQUALS
+ .rodata.FONT14X7_K
                 0x00003340        0xe ./User/hub12.o
  *fill*         0x0000334e        0x2 
- .rodata.FONT14X7_EXCLAMATION
+ .rodata.FONT14X7_L
                 0x00003350        0xe ./User/hub12.o
  *fill*         0x0000335e        0x2 
- .rodata.FONT14X7_F
+ .rodata.FONT14X7_LEFT_BRACKET
                 0x00003360        0xe ./User/hub12.o
  *fill*         0x0000336e        0x2 
- .rodata.FONT14X7_G
+ .rodata.FONT14X7_LEFT_PAREN
                 0x00003370        0xe ./User/hub12.o
  *fill*         0x0000337e        0x2 
- .rodata.FONT14X7_H
+ .rodata.FONT14X7_M
                 0x00003380        0xe ./User/hub12.o
  *fill*         0x0000338e        0x2 
- .rodata.FONT14X7_HASH
+ .rodata.FONT14X7_N
                 0x00003390        0xe ./User/hub12.o
  *fill*         0x0000339e        0x2 
- .rodata.FONT14X7_HYPHEN
+ .rodata.FONT14X7_O
                 0x000033a0        0xe ./User/hub12.o
  *fill*         0x000033ae        0x2 
- .rodata.FONT14X7_I
+ .rodata.FONT14X7_P
                 0x000033b0        0xe ./User/hub12.o
  *fill*         0x000033be        0x2 
- .rodata.FONT14X7_J
+ .rodata.FONT14X7_PERCENT
                 0x000033c0        0xe ./User/hub12.o
  *fill*         0x000033ce        0x2 
- .rodata.FONT14X7_K
+ .rodata.FONT14X7_PLUS
                 0x000033d0        0xe ./User/hub12.o
  *fill*         0x000033de        0x2 
- .rodata.FONT14X7_L
+ .rodata.FONT14X7_Q
                 0x000033e0        0xe ./User/hub12.o
  *fill*         0x000033ee        0x2 
- .rodata.FONT14X7_LEFT_BRACKET
+ .rodata.FONT14X7_QUESTION
                 0x000033f0        0xe ./User/hub12.o
  *fill*         0x000033fe        0x2 
- .rodata.FONT14X7_LEFT_PAREN
+ .rodata.FONT14X7_QUOTE
                 0x00003400        0xe ./User/hub12.o
  *fill*         0x0000340e        0x2 
- .rodata.FONT14X7_M
+ .rodata.FONT14X7_R
                 0x00003410        0xe ./User/hub12.o
  *fill*         0x0000341e        0x2 
- .rodata.FONT14X7_N
+ .rodata.FONT14X7_RIGHT_BRACKET
                 0x00003420        0xe ./User/hub12.o
  *fill*         0x0000342e        0x2 
- .rodata.FONT14X7_O
+ .rodata.FONT14X7_RIGHT_PAREN
                 0x00003430        0xe ./User/hub12.o
  *fill*         0x0000343e        0x2 
- .rodata.FONT14X7_P
+ .rodata.FONT14X7_RUPEE
                 0x00003440        0xe ./User/hub12.o
  *fill*         0x0000344e        0x2 
- .rodata.FONT14X7_PERCENT
+ .rodata.FONT14X7_S
                 0x00003450        0xe ./User/hub12.o
  *fill*         0x0000345e        0x2 
- .rodata.FONT14X7_PLUS
+ .rodata.FONT14X7_SEMICOLON
                 0x00003460        0xe ./User/hub12.o
  *fill*         0x0000346e        0x2 
- .rodata.FONT14X7_Q
+ .rodata.FONT14X7_SLASH
                 0x00003470        0xe ./User/hub12.o
  *fill*         0x0000347e        0x2 
- .rodata.FONT14X7_QUESTION
+ .rodata.FONT14X7_SPACE
                 0x00003480        0xe ./User/hub12.o
  *fill*         0x0000348e        0x2 
- .rodata.FONT14X7_QUOTE
+ .rodata.FONT14X7_T
                 0x00003490        0xe ./User/hub12.o
  *fill*         0x0000349e        0x2 
- .rodata.FONT14X7_R
+ .rodata.FONT14X7_U
                 0x000034a0        0xe ./User/hub12.o
  *fill*         0x000034ae        0x2 
- .rodata.FONT14X7_RIGHT_BRACKET
+ .rodata.FONT14X7_UNDERSCORE
                 0x000034b0        0xe ./User/hub12.o
  *fill*         0x000034be        0x2 
- .rodata.FONT14X7_RIGHT_PAREN
+ .rodata.FONT14X7_V
                 0x000034c0        0xe ./User/hub12.o
  *fill*         0x000034ce        0x2 
- .rodata.FONT14X7_RUPEE
+ .rodata.FONT14X7_W
                 0x000034d0        0xe ./User/hub12.o
  *fill*         0x000034de        0x2 
- .rodata.FONT14X7_S
+ .rodata.FONT14X7_X
                 0x000034e0        0xe ./User/hub12.o
  *fill*         0x000034ee        0x2 
- .rodata.FONT14X7_SEMICOLON
+ .rodata.FONT14X7_Y
                 0x000034f0        0xe ./User/hub12.o
  *fill*         0x000034fe        0x2 
- .rodata.FONT14X7_SLASH
+ .rodata.FONT14X7_Z
                 0x00003500        0xe ./User/hub12.o
  *fill*         0x0000350e        0x2 
- .rodata.FONT14X7_SPACE
-                0x00003510        0xe ./User/hub12.o
- *fill*         0x0000351e        0x2 
- .rodata.FONT14X7_T
-                0x00003520        0xe ./User/hub12.o
- *fill*         0x0000352e        0x2 
- .rodata.FONT14X7_U
-                0x00003530        0xe ./User/hub12.o
- *fill*         0x0000353e        0x2 
- .rodata.FONT14X7_UNDERSCORE
-                0x00003540        0xe ./User/hub12.o
- *fill*         0x0000354e        0x2 
- .rodata.FONT14X7_V
-                0x00003550        0xe ./User/hub12.o
- *fill*         0x0000355e        0x2 
- .rodata.FONT14X7_W
-                0x00003560        0xe ./User/hub12.o
- *fill*         0x0000356e        0x2 
- .rodata.FONT14X7_X
-                0x00003570        0xe ./User/hub12.o
- *fill*         0x0000357e        0x2 
- .rodata.FONT14X7_Y
-                0x00003580        0xe ./User/hub12.o
- *fill*         0x0000358e        0x2 
- .rodata.FONT14X7_Z
-                0x00003590        0xe ./User/hub12.o
- *fill*         0x0000359e        0x2 
  .rodata.Font5x7
-                0x000035a0      0x1c7 ./User/hub12.o
- *fill*         0x00003767        0x1 
- .rodata.go_art
-                0x00003768       0x40 ./User/hub12.o
+                0x00003510      0x1c7 ./User/hub12.o
+ *fill*         0x000036d7        0x1 
  .rodata.scan_row_order.0
-                0x000037a8        0x4 ./User/hub12.o
+                0x000036d8        0x4 ./User/hub12.o
+ .rodata.stop_art
+                0x000036dc       0x40 ./User/hub12.o
  .rodata.str1.4
-                0x000037ac       0xb1 ./User/hub75.o
-                                 0xd5 (size before relaxing)
+                0x0000371c      0x141 ./User/hub75.o
+                                0x165 (size before relaxing)
  *fill*         0x0000385d        0x3 
  .rodata.fm6124_reg1
                 0x00003860       0x10 ./User/hub75.o
  .rodata.fm6124_reg2
                 0x00003870       0x10 ./User/hub75.o
- .rodata.stop_art
+ .rodata.go_art
                 0x00003880       0x40 ./User/hub75.o
  .rodata.Restore_Defaults.str1.4
                 0x000038c0        0xe ./User/main.o
@@ -1483,26 +1483,26 @@ LOAD linker stubs
  .debug_line    0x000048e7       0x84 ./CMSIS/GCC/startup_M031Series.o
  .debug_line    0x0000496b      0x2f7 ./CMSIS/system_M031Series.o
 
-.debug_str      0x00000000     0x202b
- .debug_str     0x00000000      0x7b4 ./User/hub12.o
-                                0x840 (size before relaxing)
- .debug_str     0x000007b4      0x38d ./User/hub75.o
-                                0x5ea (size before relaxing)
- .debug_str     0x00000b41      0x7b1 ./User/main.o
-                                0xd1d (size before relaxing)
- .debug_str     0x000012f2      0x3bc ./Library/clk.o
+.debug_str      0x00000000     0x2029
+ .debug_str     0x00000000      0x7b8 ./User/hub12.o
+                                0x844 (size before relaxing)
+ .debug_str     0x000007b8      0x389 ./User/hub75.o
+                                0x5e6 (size before relaxing)
+ .debug_str     0x00000b41      0x7af ./User/main.o
+                                0xd1b (size before relaxing)
+ .debug_str     0x000012f0      0x3bc ./Library/clk.o
                                 0x851 (size before relaxing)
- .debug_str     0x000016ae       0x5e ./Library/gpio.o
+ .debug_str     0x000016ac       0x5e ./Library/gpio.o
                                 0x227 (size before relaxing)
- .debug_str     0x0000170c      0x449 ./Library/retarget.o
+ .debug_str     0x0000170a      0x449 ./Library/retarget.o
                                 0x6b4 (size before relaxing)
- .debug_str     0x00001b55      0x1d3 ./Library/uart.o
+ .debug_str     0x00001b53      0x1d3 ./Library/uart.o
                                 0x569 (size before relaxing)
- .debug_str     0x00001d28      0x274 ./CMSIS/GCC/_syscalls.o
+ .debug_str     0x00001d26      0x274 ./CMSIS/GCC/_syscalls.o
                                 0x4ad (size before relaxing)
- .debug_str     0x00001f9c       0x30 ./CMSIS/GCC/startup_M031Series.o
+ .debug_str     0x00001f9a       0x30 ./CMSIS/GCC/startup_M031Series.o
                                  0x69 (size before relaxing)
- .debug_str     0x00001fcc       0x5f ./CMSIS/system_M031Series.o
+ .debug_str     0x00001fca       0x5f ./CMSIS/system_M031Series.o
                                 0x590 (size before relaxing)
 
 .debug_frame    0x00000000     0x154c
