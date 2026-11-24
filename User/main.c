@@ -722,57 +722,8 @@ static uint8_t Parse_Custom_Command(char *rx_str)
     return 1;
 }
 
-/* HUB75 wiring test (scan paused while testing):
- *   |HUB75-LOW|  all 13 pins LOW      |HUB75-HIGH| all 13 pins HIGH
- *   |HUB75-PIN-n| only pin n HIGH (1 = R1 ... 13 = OE)    |HUB75-RUN| resume */
-static uint8_t HUB75_Test_Command(char *arg)
-{
-    uint16_t n;
-    char *end = strchr(arg, '|');
-
-    if (end == NULL)
-        return 0U;
-    *end = '\0';
-
-    if (strcmp(arg, "RUN") == 0)
-    {
-        HUB75_TestPause(0U);
-        Update_Stop_Panel();
-        UART1_SendString("ACK: HUB75 SCAN RUNNING\r\n");
-        return 1U;
-    }
-    if (strcmp(arg, "LOW") == 0)
-    {
-        HUB75_TestPause(1U);
-        HUB75_TestPins(0U);
-        UART1_SendString("HUB75 TEST: all 13 pins LOW (0 V). |HUB75-RUN| to resume\r\n");
-        return 1U;
-    }
-    if (strcmp(arg, "HIGH") == 0)
-    {
-        HUB75_TestPause(1U);
-        HUB75_TestPins(HUB75_TEST_PINS + 1U);
-        UART1_SendString("HUB75 TEST: all 13 pins HIGH (3.3 V). |HUB75-RUN| to resume\r\n");
-        return 1U;
-    }
-    if ((strncmp(arg, "PIN-", 4) == 0) && Parse_Number(arg + 4, &n) &&
-        (n >= 1U) && (n <= HUB75_TEST_PINS))
-    {
-        HUB75_TestPause(1U);
-        HUB75_TestPins((uint8_t)n);
-        UART1_SendString("HUB75 TEST: only ");
-        UART1_SendString(HUB75_TestPinName((uint8_t)n));
-        UART1_SendString(" is HIGH\r\n");
-        return 1U;
-    }
-    return 0U;
-}
-
 static uint8_t Legacy_Command(char *frame)
 {
-    if (strncmp(frame, "|HUB75-", 7) == 0)
-        return HUB75_Test_Command(frame + 7);
-
     if ((strcmp(frame, "|STOP|") == 0) || (strcmp(frame, "|S|") == 0))
     {
         Set_Signal(0U, 0U);

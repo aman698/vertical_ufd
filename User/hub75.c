@@ -1,8 +1,8 @@
 /******************************************************************************
  * @file     hub75.c
  * @brief    HUB75 RGB LED panel driver for M031
- *           Panel : RGB32x16_S4_VitaliyDKZ (32 x 16, 1/4 scan, binary A/B mux)
- *           1-bit colour per channel (8 colours), no timer: scanned from main loop.
+ *           Panel : P10 4S RGB, 32 x 16, 1/4 scan, FM6124 drivers, binary A/B row select
+ *           1-bit colour per channel (8 colours), scanned from the timer interrupt.
  *****************************************************************************/
 #include <string.h>
 #include "hub75.h"
@@ -16,7 +16,10 @@
 static uint8_t hub75_back[HUB75_SCAN_ROWS][HUB75_CLOCKS_PER_ROW];
 static volatile uint8_t hub75_front[HUB75_SCAN_ROWS][HUB75_CLOCKS_PER_ROW];
 static volatile uint8_t hub75_row;
-static volatile uint8_t hub75_paused;       /* wiring test: scan stopped */
+
+/* Kept as a variable (not a constant) so the delay loop compiles exactly as it
+ * did when HUB75_CLK_DELAY = 10 was tested on the hardware. */
+static volatile uint8_t hub75_clk_delay = HUB75_CLK_DELAY;
 
 static const char * const stop_art[16] = {
     "                                ",
@@ -37,18 +40,13 @@ static const char * const stop_art[16] = {
     "                                "
 };
 
-/* Select address row 0..3 (binary through a decoder, or one active-low line per row) */
-static inline void HUB75_SelectRow(uint8_t row)
+/* Short busy wait for the shift clock */
+static inline void HUB75_Delay(uint8_t n)
 {
-#if (HUB75_MUX_TYPE == HUB75_MUX_DIRECT)
-    HUB75_ADDR_A = (row != 0U);
-    HUB75_ADDR_B = (row != 1U);
-    HUB75_ADDR_C = (row != 2U);
-    HUB75_ADDR_D = (row != 3U);
-#else
-    HUB75_ADDR_A = row & 1U;
-    HUB75_ADDR_B = (row >> 1) & 1U;
-#endif
+    while (n--)
+    {
+        __NOP();
+    }
 }
 
 #if HUB75_DRIVER_FM6124
@@ -133,10 +131,6 @@ void HUB75_Init(void)
     HUB75_ADDR_C = 0; HUB75_ADDR_D = 0;
     HUB75_R1 = 0; HUB75_G1 = 0; HUB75_B1 = 0;
     HUB75_R2 = 0; HUB75_G2 = 0; HUB75_B2 = 0;
-#if (HUB75_MUX_TYPE == HUB75_MUX_DIRECT)
-    HUB75_ADDR_A = 1; HUB75_ADDR_B = 1;     /* direct mux: all rows off */
-    HUB75_ADDR_C = 1; HUB75_ADDR_D = 1;
-#endif
 
 #if HUB75_DRIVER_FM6124
     HUB75_DriverInit();                     /* enable FM6124 outputs */
@@ -169,13 +163,11 @@ void HUB75_Show(void)
     __set_PRIMASK(primask);
 }
 
-/* Pixel -> shift position, same as DMD_STM32 pattern 102 (pixbase 1, LPS):
+/* Pixel -> shift position (DMD_STM32 pattern 102, pixbase 8, UPS):
  *   address row = (y % 8) % 4
- *   clock       = x * 2 + 1  for rows 0..3 of a half
- *                 x * 2      for rows 4..7 of a half
- * i.e. for every column the panel takes the lower row first, then the upper:
- *        [1] [3] ...
- *        [0] [2] ...                                                        */
+ *   clock       = (x / 8) * 16 + x % 8       rows 0..3 of a half
+ *                 (x / 8) * 16 + x % 8 + 8   rows 4..7 of a half
+ * i.e. the panel takes 8 pixels of the upper row, then the same 8 of the lower row. */
 void HUB75_WritePixel(uint8_t x, uint8_t y, uint8_t color)
 {
     uint8_t half_y, row, clk, shift;
@@ -183,9 +175,11 @@ void HUB75_WritePixel(uint8_t x, uint8_t y, uint8_t color)
     if ((x >= HUB75_WIDTH) || (y >= HUB75_HEIGHT))
         return;
 
-    half_y = y % HUB75_HALF_HEIGHT;
-    row    = half_y % HUB75_SCAN_ROWS;
-    clk    = (uint8_t)(x * HUB75_ROWS_PER_SCAN) + ((half_y < HUB75_SCAN_ROWS) ? 1U : 0U);
+    half_y = (uint8_t)(y % HUB75_HALF_HEIGHT);
+    row    = (uint8_t)(half_y % HUB75_SCAN_ROWS);
+    clk    = (uint8_t)((x / HUB75_PIXBASE) * HUB75_ROWS_PER_SCAN * HUB75_PIXBASE + (x % HUB75_PIXBASE));
+    if (half_y >= HUB75_SCAN_ROWS)
+        clk = (uint8_t)(clk + HUB75_PIXBASE);
     shift  = (y < HUB75_HALF_HEIGHT) ? 0U : 3U;
 
     hub75_back[row][clk] = (uint8_t)((hub75_back[row][clk] & ~(0x07U << shift)) |
@@ -198,12 +192,11 @@ void HUB75_ScanRoutine(void)
 {
     const volatile uint8_t *p = hub75_front[hub75_row];
     uint8_t i, v;
-
-    if (hub75_paused)
-        return;
+    uint8_t d = hub75_clk_delay;
 
     HUB75_OE = 1;                                  /* LEDs off while shifting */
-    HUB75_SelectRow(hub75_row);
+    HUB75_ADDR_A = hub75_row & 1U;                 /* binary row select */
+    HUB75_ADDR_B = (hub75_row >> 1) & 1U;
 
     for (i = 0; i < HUB75_CLOCKS_PER_ROW; i++)
     {
@@ -214,11 +207,14 @@ void HUB75_ScanRoutine(void)
         HUB75_R2 = (v >> 3) & 1U;
         HUB75_G2 = (v >> 4) & 1U;
         HUB75_B2 = (v >> 5) & 1U;
+        HUB75_Delay(d);                            /* data settles before the edge */
         HUB75_CLK = 1;                             /* data taken on rising edge */
+        HUB75_Delay(d);                            /* clock high time */
         HUB75_CLK = 0;
     }
 
     HUB75_LAT = 1;                                 /* shift register -> LED drivers */
+    HUB75_Delay(d);
     HUB75_LAT = 0;
     HUB75_OE = 0;                                  /* LEDs on */
 
@@ -233,49 +229,4 @@ void HUB75_DrawBigStop(uint8_t color)
             if (stop_art[y][x] == 'X') HUB75_WritePixel(x, y, color);
         }
     }
-}
-
-/* ---------------------------------------------------------------------------
- * Wiring test (keep the names in sync with the pin map in hub75.h)
- * ------------------------------------------------------------------------- */
-static volatile uint32_t * const hub75_test_pin[HUB75_TEST_PINS] = {
-    &HUB75_R1, &HUB75_G1, &HUB75_B1, &HUB75_R2, &HUB75_G2, &HUB75_B2,
-    &HUB75_ADDR_A, &HUB75_ADDR_B, &HUB75_ADDR_C, &HUB75_ADDR_D,
-    &HUB75_CLK, &HUB75_LAT, &HUB75_OE
-};
-
-static const char * const hub75_test_name[HUB75_TEST_PINS] = {
-    "R1  = PA14 -> HUB75 pin 1",
-    "G1  = PA15 -> HUB75 pin 2",
-    "B1  = PA13 -> HUB75 pin 3",
-    "R2  = PC0  -> HUB75 pin 5",
-    "G2  = PA12 -> HUB75 pin 6",
-    "B2  = PC1  -> HUB75 pin 7",
-    "A   = PC3  -> HUB75 pin 9",
-    "B   = PC2  -> HUB75 pin 10",
-    "C   = PC5  -> HUB75 pin 11",
-    "D   = PC4  -> HUB75 pin 12",
-    "CLK = PA0  -> HUB75 pin 13",
-    "LAT = PF15 -> HUB75 pin 14",
-    "OE  = PA1  -> HUB75 pin 15"
-};
-
-void HUB75_TestPause(uint8_t pause)
-{
-    hub75_paused = pause;
-    if (!pause)
-        HUB75_OE = 1;                   /* the next scan turns the LEDs back on */
-}
-
-void HUB75_TestPins(uint8_t n)
-{
-    uint8_t i;
-
-    for (i = 0; i < HUB75_TEST_PINS; i++)
-        *hub75_test_pin[i] = ((n == (uint8_t)(HUB75_TEST_PINS + 1U)) || (n == (uint8_t)(i + 1U))) ? 1U : 0U;
-}
-
-const char *HUB75_TestPinName(uint8_t n)
-{
-    return ((n >= 1U) && (n <= HUB75_TEST_PINS)) ? hub75_test_name[n - 1U] : "";
 }

@@ -1,8 +1,8 @@
 /******************************************************************************
  * @file     hub75.h
  * @brief    HUB75 RGB LED panel driver for M031
- *           Panel : RGB32x16_S4_VitaliyDKZ (32 x 16, 1/4 scan, binary A/B mux)
- *           Pixel order ported from DMD_STM32: pattern 102, pixbase 1, LPS
+ *           Panel : P10 4S RGB, 32 x 16, 1/4 scan, FM6124 drivers, binary A/B row select
+ *           Pixel order: DMD_STM32 pattern 102, pixbase 8, UPS (checked on the hardware)
  *****************************************************************************/
 #ifndef HUB75_H
 #define HUB75_H
@@ -22,6 +22,7 @@
 #define HUB75_HALF_HEIGHT       (HUB75_HEIGHT / 2U)                     /* 8 rows per half   */
 #define HUB75_ROWS_PER_SCAN     (HUB75_HALF_HEIGHT / HUB75_SCAN_ROWS)   /* 2 rows per half   */
 #define HUB75_CLOCKS_PER_ROW    (HUB75_WIDTH * HUB75_ROWS_PER_SCAN)     /* 64 clocks per row */
+#define HUB75_PIXBASE           8U      /* pixels shifted per row before switching row */
 
 /* Colours: 1 bit per channel (bit0 = R, bit1 = G, bit2 = B) */
 #define HUB75_BLACK             0U
@@ -53,14 +54,10 @@
  * panel stays completely dark. Set to 0 for plain shift-register drivers. */
 #define HUB75_DRIVER_FM6124     1
 
-/* Row select type (A/B/C/D):
- *   HUB75_MUX_BINARY : A/B carry the row number 0..3 into a 74HC138-type decoder
- *   HUB75_MUX_DIRECT : A/B/C/D each switch one row directly, active LOW
- * RGB32x16_S4_VitaliyDKZ is BINARY. If the panel has no '138' decoder and the image
- * shows several rows lit at once, change this to HUB75_MUX_DIRECT. */
-#define HUB75_MUX_BINARY        0
-#define HUB75_MUX_DIRECT        1
-#define HUB75_MUX_TYPE          HUB75_MUX_BINARY
+/* Shift clock slow-down: extra wait before and after each CLK rising edge
+ * (~8 CPU cycles per step). 10 was found on the hardware: with less, the lower
+ * 8 rows flicker because the 3.3 V clock reaches the far driver chips weakly. */
+#define HUB75_CLK_DELAY         10U
 
 /* Same pins as port bit masks, for GPIO_SetMode() - keep in sync with the map above */
 #define HUB75_PA_PINS           (BIT0 | BIT1 | BIT12 | BIT13 | BIT14 | BIT15)  /* CLK OE G2 B1 R1 G1 */
@@ -82,14 +79,5 @@ void HUB75_Show(void);
 
 /* Full-panel graphic */
 void HUB75_DrawBigStop(uint8_t color);
-
-/* Wiring test - pause the scan and drive the HUB75 pins by hand:
- *   HUB75_TestPause(1)   stop scanning (pins keep what the test sets), 0 = resume
- *   HUB75_TestPins(n)    n = 0: all LOW, 1..13: only pin n HIGH, 14: all HIGH
- *   HUB75_TestPinName(n) "R1  = PA14 -> HUB75 pin 1" ... for n = 1..13 */
-#define HUB75_TEST_PINS         13U
-void HUB75_TestPause(uint8_t pause);
-void HUB75_TestPins(uint8_t n);
-const char *HUB75_TestPinName(uint8_t n);
 
 #endif /* HUB75_H */
